@@ -1,4 +1,4 @@
-import math
+
 import numpy as np
 
 ##### TODO #########################################
@@ -11,6 +11,7 @@ currentPos = np.zeros(nInst)
 boughtStocks = np.zeros([nInst,10])
 
 def getMyPosition(prcSoFar):
+    # Provided code start
     global currentPos
     (nins, nt) = prcSoFar.shape
     if nt < 2:
@@ -20,7 +21,17 @@ def getMyPosition(prcSoFar):
     lNorm = np.sqrt(lastRet.dot(lastRet))
     lastRet /= lNorm
     rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar[:, -1]])
-    currentPos = np.array([int(x) for x in currentPos + rpos])
+    currentPos = np.array([int(x) for x in currentPos+rpos])
+    # Provided Code end
+    # Convert to a pandas dataframe for and trasnpose for easier manipulation
+    prcSoFar = pd.DataFrame(prcSoFar)
+    prcSoFar = prcSoFar.T
+    print(prcSoFar)
+    #First linear model for basic prediction
+    predicted_prices = fit_linear_regression_basic(prcSoFar)
+
+
+
     return currentPos
 
 
@@ -89,3 +100,25 @@ def getStockRiskAdjMomentum(stockData, lenPeriod, numPeriods):
 
     # returning the risk adjusted momentum of the stock
     return avMomentum / sd
+
+def fit_linear_regression_basic(prcSoFar):
+    """
+    Fits a basic linear regression by just passing in price of last 14 days and returns a predicted price
+    Parameters:
+        prcSoFar: numpy array of shape (nInst, nt) containing the price of each stock at each time step
+    Returns:
+        numpy array of shape (nInst,) containing the predicted price of each stock
+    """
+    # Sets up the x arrays and predicted prices array
+    numberOfDays = 14
+    predicted_prices = np.zeros(50)
+    # x starts at day 0, ends at day 13
+    x = np.arange(0, numberOfDays).reshape(-1,1)
+    # Go through every financial instrument and fit a linear regression model to it
+    for i in range(prcSoFar.shape[1]):
+        y = prcSoFar.iloc[-numberOfDays-1:-1,i]
+        model = LinearRegression().fit(x, y)
+        predicted_prices[i] = model.predict(np.array([numberOfDays]).reshape(-1,1))
+
+    return pd.Series(predicted_prices)
+
