@@ -10,8 +10,7 @@ import pandas as pd
 nInst = 50
 currentPos = np.zeros(nInst)
 
-
-def getMyPosition(prcSoFar):
+def getMyPositionOriginal(prcSoFar):
     # Provided code start 
     global currentPos
     (nins, nt) = prcSoFar.shape
@@ -22,15 +21,25 @@ def getMyPosition(prcSoFar):
     lastRet /= lNorm
     rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar[:, -1]])
     currentPos = np.array([int(x) for x in currentPos+rpos])
+    return currentPos
     # Provided Code end
+
+
+def getMyPosition(prcSoFar):
+    global currentPos
     # Convert to a pandas dataframe for and trasnpose for easier manipulation
     prcSoFar = pd.DataFrame(prcSoFar)
     prcSoFar = prcSoFar.T
-    print(prcSoFar)
     #First linear model for basic prediction
     predicted_prices = fit_linear_regression_basic(prcSoFar)
+    prcSoFar.loc["Last-day-prediction"] = predicted_prices
     
-    
+    # This model is dogshit, would not recommend using it lol 
+    lastRet = np.log(prcSoFar.iloc[-1, :] / prcSoFar.iloc[-2, :])
+    lNorm = np.sqrt(lastRet.dot(lastRet))
+    lastRet /= lNorm
+    rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar.iloc[-1,:]])
+    currentPos = np.array([int(x) for x in currentPos+rpos])
 
     return currentPos
 
@@ -46,10 +55,10 @@ def fit_linear_regression_basic(prcSoFar):
     numberOfDays = 14
     predicted_prices = np.zeros(50)
     # x starts at day 0, ends at day 13
-    x = np.arange(0, numberOfDays).reshape(-1,1)
+    x = np.arange(0, numberOfDays + 1).reshape(-1,1)
     # Go through every financial instrument and fit a linear regression model to it 
     for i in range(prcSoFar.shape[1]):
-        y = prcSoFar.iloc[-numberOfDays-1:-1,i]
+        y = prcSoFar.iloc[-numberOfDays-1:,i]
         model = LinearRegression().fit(x, y)
         predicted_prices[i] = model.predict(np.array([numberOfDays]).reshape(-1,1))
 
