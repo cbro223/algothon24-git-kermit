@@ -1,4 +1,3 @@
-
 import numpy as np
 
 ##### TODO #########################################
@@ -8,6 +7,9 @@ import numpy as np
 
 nInst = 50
 currentPos = np.zeros(nInst)
+
+boughtStocks = np.zeros([nInst, 10])
+
 
 def getMyPosition(prcSoFar):
     # Provided code start
@@ -20,7 +22,9 @@ def getMyPosition(prcSoFar):
     lNorm = np.sqrt(lastRet.dot(lastRet))
     lastRet /= lNorm
     rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar[:, -1]])
-    currentPos = np.array([int(x) for x in currentPos+rpos])
+
+    currentPos = np.array([int(x) for x in currentPos + rpos])
+
     return currentPos
     # Provided Code end
 
@@ -41,6 +45,7 @@ def getMyPositionLinearRegression(prcSoFar):
     lastRet /= lNorm
     rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar.iloc[-1,:]])
     currentPos = np.array([int(x) for x in currentPos+rpos])
+
     return currentPos
 
 
@@ -57,22 +62,23 @@ def getMyPositionV2(prcSoFar):
     for i in range(nins):
         riskAjMom[i] = getStockRiskAdjMomentum(prcSoFar[i, :], period, periods)
     normRiskAdjMom = riskAjMom / np.sqrt(riskAjMom.dot(riskAjMom))
-    #normRiskAdjMom = riskAjMom / sum(riskAjMom)
+    # normRiskAdjMom = riskAjMom / sum(riskAjMom)
     changPos = np.array([x for x in 10000 * nins * normRiskAdjMom / period])
     changPos[changPos < 3000] = 0
     changPos = np.array([int(x) for x in changPos / prcSoFar[:, -1]])
     prevBought = np.zeros(nins)
     for i in range(nins):
-        for j in range(int(period/2)):
-            if nt % (j+1) == 0:
+        for j in range(int(period / 2)):
+            if nt % (j + 1) == 0:
                 prevBought[i] = boughtStocks[i, j]
                 boughtStocks[i, j] = changPos[i]
 
     currentPos = np.array([x for x in currentPos + changPos - prevBought])
     return currentPos
 
+
 def getStockRiskAdjMomentum(stockData, lenPeriod, numPeriods):
-    '''
+    """
     calculates the current risk adjusted moment for a given stock
 
     Inputs
@@ -89,14 +95,9 @@ def getStockRiskAdjMomentum(stockData, lenPeriod, numPeriods):
     riskAjMomentum: float
         the risk adjusted moment of the stock.
 
-    '''
+    """
 
     sumCurrentMomentum = np.zeros(numPeriods)
-    """
-    # extracting and reshaping the relevant stock data for which the momentum will be calculated for
-    relevantData = stockData[(len(stockData) - (numPeriods * lenPeriod)):]
-    relevantData.shape = (numPeriods, lenPeriod)
-    """
 
     for i in range(numPeriods):
         sumCurrentMomentum[i] += (stockData[-((i * lenPeriod) + 1)] / stockData[-(((i + 1) * lenPeriod) + 1)]) - 1
@@ -109,6 +110,7 @@ def getStockRiskAdjMomentum(stockData, lenPeriod, numPeriods):
 
     # returning the risk adjusted momentum of the stock
     return avMomentum / sd
+
 
 def fit_linear_regression_basic(prcSoFar):
     """
@@ -132,4 +134,5 @@ def fit_linear_regression_basic(prcSoFar):
         predicted_prices[i] = model.predict(np.array([numberOfDays]).reshape(-1,1))
 
     return pd.Series(predicted_prices)
+
 
