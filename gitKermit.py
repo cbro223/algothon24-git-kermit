@@ -25,7 +25,7 @@ def getMyPositionOriginal(prcSoFar):
     # Provided Code end
 
 
-def getMyPosition(prcSoFar):
+def getMyPositionLinearRegression(prcSoFar):
     global currentPos
     # Convert to a pandas dataframe for and trasnpose for easier manipulation
     prcSoFar = pd.DataFrame(prcSoFar)
