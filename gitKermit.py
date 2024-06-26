@@ -7,8 +7,9 @@ import numpy as np
 
 nInst = 50
 currentPos = np.zeros(nInst)
-
 boughtStocks = np.zeros([nInst, 10])
+firstRun = True
+table = 0
 
 
 def getMyPosition(prcSoFar):
@@ -77,6 +78,23 @@ def getMyPositionV2(prcSoFar):
     return currentPos
 
 
+def getMyPositionV3(prcSoFar):
+    global currentPos
+    global boughtStocks
+    global firstRun
+    global table
+    (nins, nt) = prcSoFar.shape
+    if nt < 2:
+        return np.zeros(nins)
+    if firstRun:
+        table = CreateLeadLagProbabilityTable(prcSoFar, 14, 7)
+        firstRun = False
+    else:
+        table = UpdateLeadLagProbabilityTable(table , prcSoFar, 14, 7)
+
+    return currentPos
+
+
 def getStockRiskAdjMomentum(stockData, lenPeriod, numPeriods):
     """
     calculates the current risk adjusted moment for a given stock
@@ -134,5 +152,63 @@ def fit_linear_regression_basic(prcSoFar):
         predicted_prices[i] = model.predict(np.array([numberOfDays]).reshape(-1,1))
 
     return pd.Series(predicted_prices)
+
+def UpdateLeadLagProbabilityTable(table, stockData, maxLeadingTime, maxPeriodOfLeading):
+
+    for overNumDays in range(1,maxPeriodOfLeading+1):
+        percentChangeInPriceData = (stockData[:,overNumDays:]/stockData[:,:-overNumDays]) - 1
+        for leadingStock in range(np.shape(percentChangeInPriceData)[0]):
+            for daysLeading in range(1,maxLeadingTime + 1):
+                relativeChangeInPrice = percentChangeInPriceData[leadingStock,-(daysLeading + 1)]/percentChangeInPriceData[:, -1] - 1
+                index1 = relativeChangeInPrice <= 0.7
+                index2 = relativeChangeInPrice >= -0.7
+                relativeChangeInPrice[index1 == index2] = 1
+                relativeChangeInPrice[index1 != index2] = 0
+                table[leadingStock,:,daysLeading,overNumDays] += relativeChangeInPrice
+
+    return table
+
+def CreateLeadLagProbabilityTable(stockData, maxLeadingTime, maxPeriodOfLeading):
+    """
+    creates a 4 dimensional table which contins the frequency of time that a particular stock exhibits the same
+    behaviour as another stock after some time i.e. a tabel that show the number of times that stock a leads stock b
+    by a certain amount of time over a certain period. this tabel can be indexed such that table[i,j,k,l] shows the
+    number of times that stock i leads stock j by k days in regard to the price change over l days
+
+    Inputs
+    ------
+    stockData: numpy array
+        the complete stock data so far
+    maxLeadingTime: int
+        the maximum amount of days of leading that you want to calculate i.e., up to stock 1 leads stock 2 by
+        maxLeadingTime day.
+    maxPeriodOfLeading: int
+        the maximum amount of days over which the change in price is calculated. i.e. up to stock 1 leads stock 2 by k
+        day in regard to the price change of the stocks over maxPeriodOfLeading days
+
+    Outputs
+    -------
+    table : numpy array
+        a frequency of time that stock i leads stock j by k days in regard to the price change of the stock over l days
+
+    Note
+    1) the change in price is calculated in reliteve chang in price not absolute change in price
+    """
+    table = np.zeros([stockData.shape[0],stockData.shape[0], maxLeadingTime + 1, maxPeriodOfLeading + 1])
+    for overNumDays in range(1, maxPeriodOfLeading + 1):
+        percentChangeInPriceData = (stockData[:, overNumDays:] / stockData[:, :-overNumDays]) - 1
+        for leadingStock in range(np.shape(percentChangeInPriceData)[0]):
+            for daysLeading in range(0,maxLeadingTime + 1):
+                if daysLeading == 0:
+                    relativeChangeInPrice = percentChangeInPriceData[leadingStock, :] / percentChangeInPriceData[:, :] - 1
+                else:
+                    relativeChangeInPrice = percentChangeInPriceData[leadingStock, :-daysLeading] / percentChangeInPriceData[:,daysLeading:] - 1
+                index1 = relativeChangeInPrice <= 0.7
+                index2 = relativeChangeInPrice >= -0.7
+                relativeChangeInPrice[index1 == index2] = 1
+                relativeChangeInPrice[index1 != index2] = 0
+                relativeChangeInPrice = np.sum(relativeChangeInPrice, axis=1)
+                table[leadingStock, :, daysLeading, overNumDays] += relativeChangeInPrice
+    return table
 
 
