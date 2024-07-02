@@ -136,3 +136,69 @@ def fit_linear_regression_basic(prcSoFar):
     return pd.Series(predicted_prices)
 
 
+def getCorrelatedStocks(prcSoFar):
+    """
+    TODO: consider a different correlation test, eg one way ANOVA
+    This function will be used to indentify correlated stocks using a spearman rank correlation
+    that can be used in a multiple linear regression as variables for each-other.
+
+    Arguments:
+    ----------
+    prcSoFar: numpy array of shape (nInst, nt) containing the price of each stock at each time step
+
+    Returns:
+    --------
+    correlations: a list of lists containing the correlated stocks for each stock, ie anything
+    in element 0 is correlated with stock of instrument 1
+    """
+    global currentPos
+    # Convert to a pandas dataframe for and trasnpose for easier manipulation
+    df = pd.DataFrame(prcSoFar)
+
+    correlations = [[] for _ in range(df.shape[0])]
+
+    # Adjusting our alpha value using Bonferroni correction
+    number_of_comparisons = (df.shape[0] * (df.shape[0]-1)) / 2
+    alpha = 0.05
+    adjusted_alpha = alpha / number_of_comparisons
+
+    for i in range(df.shape[0]):
+        for j in range(df.shape[0]):
+            if i == j:
+                continue
+            rank = stats.spearmanr(df.iloc[i, :], df.iloc[j, :])
+            # TODO: consider using an alternative to Bonferroni correction for this p-value
+            if rank[1] < adjusted_alpha:
+                correlations[i].append(j)
+
+    return correlations
+
+
+def fitMultipleLinearRegression(prcSoFar):
+    """
+    This function fits a multi variable linear regression to each stock with the parameters being the other
+    stocks as wel as time.
+    """
+
+    # Use a Spearman rank to get a list of correlated stocks
+    correlations = getCorrelatedStocks(prcSoFar)
+    df = pd.DataFrame(prcSoFar)
+    predictions = []
+
+    # Go through each stock and fit a regression
+    for i in range(df.shape[0]):
+
+        # Initialize the X array that is passed in
+        X = np.arange(0, df.shape[1]-1).reshape(-1,1)
+        # Add each correlated stock to the X array
+        for stock in correlations[i]:
+            X = np.column_stack((X, df.iloc[stock, :-1]))
+
+        # Fit a model for this particular stock and made prediction based on the known data
+        results = regression.linear_model.OLS(df.iloc[i, :-1], sm.add_constant(X)).fit()
+        X = [df.shape[1]]
+        for stock in correlations[i]:
+            X = np.column_stack((X, df.iloc[stock, -1]))
+        new_price = results.predict(X)
+        predictions.append(results)
+    return predictions
